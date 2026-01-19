@@ -31,11 +31,11 @@ class TechnicalAnalyzer:
             # fdr을 사용하여 데이터 로드 (한국 주식에 훨씬 안정적)
             df = fdr.DataReader(self.ticker, start=start_date)
             
-            if df.empty:
-                # 혹시 실패하면 yfinance로 2차 시도 (Backup)
-                symbol = f"{self.ticker}.KS"
-                stock = yf.Ticker(symbol)
-                df = stock.history(period="10y")
+            # if df.empty:
+            #     # 혹시 실패하면 yfinance로 2차 시도 (Backup)
+            #     symbol = f"{self.ticker}.KS"
+            #     stock = yf.Ticker(symbol)
+            #     df = stock.history(period="10y")
             
             if df.empty: return df
 
@@ -816,6 +816,7 @@ if stock_map:
         fig11 = create_chart() 
         fig11.add_trace(go.Scatter(x=df_recent.index, y=df_recent['Band_Width'], line=dict(color='magenta', width=1), name='Band Width'))
         st.plotly_chart(fig11, use_container_width=True, config={'staticPlot': True})
+
 
 
 
