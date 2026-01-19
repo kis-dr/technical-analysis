@@ -406,24 +406,7 @@ if stock_map:
     # ---------------------------------------------------------
     # [NEW] Gemini AI 진단 멘트 출력
     # ---------------------------------------------------------
-    if gemini_api_key:
-        with st.spinner("🤖 AI가 보조지표를 정밀 분석 중입니다..."):
-            ai_comment = get_ai_diagnosis(
-                gemini_api_key, 
-                selected_name, 
-                today_row['Close'], 
-                today_row, 
-                today_signals
-            )
 
-            st.markdown(f"""
-            <div style="background-color: #f1f8e9; padding: 15px; border-radius: 10px; border: 1px solid #c5e1a5; margin-bottom: 20px;">
-                <h4 style="margin-top:0; color: #33691e;">✨ AI 기술적 진단</h4>
-                <p style="margin: 0; font-size: 1.2rem; color: #333333; line-height: 1.6;">{ai_comment}</p>
-            </div>
-            """, unsafe_allow_html=True)
-    else:
-        st.info("💡 사이드바에 'Gemini API Key'를 입력하면 AI 기반의 정밀 진단 코멘트를 받아볼 수 있습니다.")
 
     # ==========================================
     # SECTION 1: 과거 유사 패턴 백테스팅
@@ -442,31 +425,205 @@ if stock_map:
     else:
         st.warning(f"현재 10개 지표가 모두 일치하는 과거 사례가 없습니다. (Threshold: 10/10)")
 
-    # # ==========================================
-    # # SECTION 2: 전체 기간 차트
-    # # ==========================================
+    # ==========================================
+    # SECTION 2: 과거 유사 패턴 기반 미래 예측 (스파게티 차트 & 분석 테이블)
+    # ==========================================
+    
+    # 화면을 좌(차트) 우(테이블)로 분할 (비율 2.5 : 1)
+    col_chart, col_table = st.columns([3, 1])
+    
+    # -------------------------------------------------------
+    # [좌측] 시나리오 예측 차트 (스파게티 차트)
+    # -------------------------------------------------------
+    with col_chart:
+        # 최근 3개월 데이터 준비
+        lookback_days = 10  
+        df_recent_history = full_df.iloc[-lookback_days:]
+        
+        # 차트 캔버스 생성
+        fig_projection = go.Figure()
 
-    fig_full = go.Figure()
-    fig_full.add_trace(go.Scatter(x=full_df.index, y=full_df['Close'], mode='lines', name='주가', line=dict(color='#cccccc', width=1.5)))
-    if not similar_days.empty:
-        fig_full.add_trace(go.Scatter(x=similar_days.index, y=similar_days['Close'], mode='markers', name='유사패턴 발생일', marker=dict(color='#d62728', size=6, symbol='circle', opacity=0.8)))
+        current_close = today_row['Close']
+        future_movements = [] 
 
-    fig_full.update_layout(
-        title=dict(text=f"{selected_name} 유사패턴 발생일", font=dict(size=15)),
-        template="plotly_white", height=400,
-        showlegend=True,
-        xaxis=dict(fixedrange=True, title=None, tickformat="%Y"),
-        yaxis=dict(fixedrange=True, tickformat=","),
-        dragmode=False
-    )
-    with st.container(border=True):
-        st.plotly_chart(fig_full, use_container_width=True, config={'staticPlot': True})
+        # 미래 날짜 축 생성
+        last_date_obj = pd.to_datetime(today_row.name)
+        future_dates = [last_date_obj + timedelta(days=i) for i in range(0, holding_days + 1)]
 
+        if not similar_days.empty:
+            for idx in similar_days.index:
+                loc_idx = full_df.index.get_loc(idx)
+                
+                # 데이터 슬라이싱 및 정규화
+                if loc_idx + holding_days < len(full_df):
+                    past_segment = full_df.iloc[loc_idx : loc_idx + holding_days + 1]['Close']
+                    base_price_past = full_df.iloc[loc_idx]['Close']
+                    rebased_segment = (past_segment.values / base_price_past) * current_close
+                    
+                    future_movements.append(rebased_segment)
+                    
+                    # 개별 경로 (연한 회색)
+                    fig_projection.add_trace(go.Scatter(
+                        x=future_dates, 
+                        y=rebased_segment, 
+                        mode='lines', 
+                        line=dict(color='rgba(200, 200, 200, 0.4)', width=1),
+                        showlegend=False,
+                        hoverinfo='skip'
+                    ))
+
+        # 메인 1: 최근 3개월 주가 (검정 실선)
+        fig_projection.add_trace(go.Scatter(
+            x=df_recent_history.index, 
+            y=df_recent_history['Close'], 
+            mode='lines', 
+            name='최근 주가', 
+            line=dict(color='black', width=2)
+        ))
+
+        # 메인 2: 예상 평균 경로 (점선)
+        if future_movements:
+            # 시각적으로는 반올림된 가격을 보여주더라도
+            avg_path = np.round(np.mean(future_movements, axis=0), 0)
+            avg_color = '#d62728' if calc_avg_return > 0 else '#1f77b4' # 색상도 수익률 기준
+            
+            fig_projection.add_trace(go.Scatter(
+                x=future_dates,
+                y=avg_path,
+                mode='lines+markers',
+                name=f'예상 평균',
+                line=dict(color=avg_color, width=3, dash='dot'),
+                marker=dict(size=5)
+            ))
+            
+            # [수정 핵심] 여기서 직접 계산하지 않고, Section 1에서 구한 'calc_avg_return' 변수를 사용
+            fig_projection.add_annotation(
+                x=future_dates[-1], y=avg_path[-1],
+                text=f"{calc_avg_return:+.2f}%", # <-- Section 1 값과 일치
+                showarrow=True, arrowhead=1, ax=35, ay=-30,
+                font=dict(color=avg_color, size=13, weight='bold')
+            )
+
+        # 기준선 (0%)
+        combined_x_range = list(df_recent_history.index) + future_dates[1:]
+        fig_projection.add_shape(
+            type="line",
+            x0=combined_x_range[0], y0=current_close,
+            x1=combined_x_range[-1], y1=current_close,
+            line=dict(color="gray", width=1, dash="dash"),
+        )
+
+        fig_projection.update_layout(
+            title=dict(
+                text=f"<b>과거 유사 패턴 매칭 </b>", 
+                font=dict(size=18),
+                x=0, y=0.95
+            ),
+            template="plotly_white", 
+            height=400, # 높이 조정
+            margin=dict(l=10, r=10, t=40, b=10),
+            showlegend=True,
+            legend=dict(
+                orientation="h",
+                yanchor="bottom", y=1.02,
+                xanchor="right", x=1
+            ),
+            xaxis=dict(title=None, tickformat="%m-%d", showgrid=False),
+            yaxis=dict(tickformat=",", showgrid=True, gridcolor='#f0f0f0'),
+            hovermode="x unified"
+        )
+        st.plotly_chart(fig_projection, use_container_width=True)
+
+    # -------------------------------------------------------
+    # [우측] 상세 데이터 테이블 (수정됨: 모든 건수 표시)
+    # -------------------------------------------------------
+    with col_table:
+        st.markdown(f"<div style='margin-top: 10px; font-weight:bold; font-size:1.05rem;'>유사 시점 목록</div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='font-size:0.8rem; color:gray; margin-bottom:10px;'>총 {len(similar_days)}건 (최근순)</div>", unsafe_allow_html=True)
+
+        if not similar_days.empty:
+            records = []
+            for idx in similar_days.index:
+                loc_idx = full_df.index.get_loc(idx)
+                
+                # 표시할 날짜 문자열
+                date_str = idx.strftime("%Y-%m-%d")
+                
+                # 미래 데이터 확인
+                if loc_idx + holding_days < len(full_df):
+                    past_price = full_df.iloc[loc_idx]['Close']
+                    future_price = full_df.iloc[loc_idx + holding_days]['Close']
+                    ret = (future_price - past_price) / past_price
+                    
+                    # 결과가 있는 경우
+                    records.append({
+                        "발생일": date_str,
+                        "수익률": ret,   # 숫자형 (정렬/색상용)
+                        "비고": f"{ret:+.2%}" # 표시용 문자열
+                    })
+                else:
+                    # 결과가 아직 없는 경우 (최근 발생)
+                    records.append({
+                        "발생일": date_str,
+                        "수익률": 0,     # 색상 처리를 위해 0 또는 NaN 처리
+                        "비고": "진행중"  # 표시용 텍스트
+                    })
+            
+            # DataFrame 생성 및 정렬
+            df_table = pd.DataFrame(records)
+            df_table = df_table.sort_values(by="발생일", ascending=False)
+            
+            # 색상 스타일링 함수
+            def style_table(row):
+                val = row['비고']
+                if val == "진행중":
+                    color = "gray"
+                elif "+" in val: # 양수
+                    color = "#d62728" # 빨강
+                elif "-" in val: # 음수
+                    color = "#1f77b4" # 파랑
+                else:
+                    color = "black"
+                return [f'color: {color}; font-weight: bold' if col == '비고' else '' for col in row.index]
+
+            # '수익률' 컬럼은 로직용이므로 숨기고 '비고'를 보여줌
+            st.dataframe(
+                df_table.style.apply(style_table, axis=1),
+                use_container_width=True,
+                height=350,
+                hide_index=True,
+                column_order=["발생일", "비고"], # 수익률(숫자) 컬럼 숨김
+                column_config={
+                    "발생일": st.column_config.TextColumn("발생일", width="medium"),
+                    "비고": st.column_config.TextColumn(f"{holding_days}일 후", width="small")
+                }
+            )
+        else:
+            st.caption("표시할 데이터가 없습니다.")
     # ==========================================
     # SECTION 3: 오늘의 10대 지표 정밀 진단
     # ==========================================
     st.markdown("---")
     st.markdown(f"### 기술적 분석 지표 진단 (기준일: {last_date} | 주가: {today_row['Close']:,.0f}원)")
+
+    if gemini_api_key:
+        with st.spinner("🤖 AI가 보조지표를 정밀 분석 중입니다..."):
+            ai_comment = get_ai_diagnosis(
+                gemini_api_key, 
+                selected_name, 
+                today_row['Close'], 
+                today_row, 
+                today_signals
+            )
+
+            st.markdown(f"""
+            <div style="background-color: #f1f8e9; padding: 15px; border-radius: 10px; border: 1px solid #c5e1a5; margin-bottom: 20px;">
+                <h4 style="margin-top:0; color: #33691e;">✨ AI 기술적 진단</h4>
+                <p style="margin: 0; font-size: 1.2rem; color: #333333; line-height: 1.6;">{ai_comment}</p>
+            </div>
+            """, unsafe_allow_html=True)
+    else:
+        pass
 
     cols = st.columns(5)
 
@@ -648,3 +805,4 @@ if stock_map:
         fig11 = create_chart() 
         fig11.add_trace(go.Scatter(x=df_recent.index, y=df_recent['Band_Width'], line=dict(color='magenta', width=1), name='Band Width'))
         st.plotly_chart(fig11, use_container_width=True, config={'staticPlot': True})
+
