@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from google import genai 
 import truststore, certifi, requests, time
 from google.genai import types 
-
+import FinanceDataReader as fdr
 truststore.inject_into_ssl()
 
 # ==========================================
@@ -21,41 +21,47 @@ class TechnicalAnalyzer:
 
     def _load_data(self):
         try:
-            # yfinance는 한국 코스피 종목 뒤에 .KS를 붙여야 함
-            symbol = f"{self.ticker}.KS"
-
-            # 최근 10년 데이터 로드
-            # yfinance는 데이터프레임의 인덱스가 이미 datetime이며, Timezone이 포함될 수 있음
-            session = requests.Session()
-            session.headers.update({
-                    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-                })
-            stock = yf.Ticker(symbol,session=session)
-            df = stock.history(period="10y")
-
+            # 1. FinanceDataReader (Naver Finance) 시도
+            # 한국 주식 코드는 숫자 6자리로 들어옵니다 (예: '005930')
+            # yfinance와 달리 .KS를 붙이지 않습니다.
+            
+            # 10년 전 날짜 계산
+            start_date = (datetime.now() - timedelta(days=365*10)).strftime('%Y-%m-%d')
+            
+            # fdr을 사용하여 데이터 로드 (한국 주식에 훨씬 안정적)
+            df = fdr.DataReader(self.ticker, start=start_date)
+            
+            if df.empty:
+                # 혹시 실패하면 yfinance로 2차 시도 (Backup)
+                symbol = f"{self.ticker}.KS"
+                stock = yf.Ticker(symbol)
+                df = stock.history(period="10y")
+            
             if df.empty: return df
 
-            # Timezone 제거 (다른 날짜 비교 로직과의 호환성 위해)
-            df.index = df.index.tz_localize(None)
-            df.index.name = 'Date'
-
-            # yfinance 컬럼은 Capitalized 되어 있음 (Open, High, Low, Close, Volume)
-            # 필요한 컬럼만 남기기 (Dividends, Stock Splits 제거)
+            # 컬럼 이름 표준화 (fdr은 이미 Open, High, Low, Close, Volume, Change 등을 반환함)
+            # 필요한 컬럼만 선택
             df = df[['Open', 'High', 'Low', 'Close', 'Volume']]
+            
+            # 데이터 타입 변환 (가끔 문자열로 들어오는 경우 방지)
+            for col in ['Open', 'High', 'Low', 'Close', 'Volume']:
+                df[col] = pd.to_numeric(df[col], errors='coerce')
+            
+            # 0인 거래량 처리
+            df['Volume'] = df['Volume'].replace(0, np.nan).fillna(method='ffill')
+            df['Volume'] = df['Volume'].fillna(1000000) # 여전히 NaN이면 임의값
 
-            if 'Volume' in df.columns:
-                df['Volume'] = df['Volume'].replace(0, np.nan).fillna(method='ffill')
-            else:
-                df['Volume'] = 1000000
-
-            # 오늘 데이터 제외 로직 (장 중인 경우 불완전한 봉 제외)
+            # 오늘 데이터 제외 로직 (장 중인 경우)
             if not df.empty:
                 last_date = df.index[-1].date()
                 today_date = datetime.now().date()
+                # 장 마감 전이라도 데이터가 들어올 수 있으므로, 
+                # 분석의 정확도를 위해 오늘 날짜 데이터는 제외 (선택사항)
                 if last_date == today_date:
                     df = df.iloc[:-1]
-
+            
             return df
+
         except Exception as e:
             st.error(f"데이터 로드 중 오류 발생: {e}")
             return pd.DataFrame()
@@ -810,5 +816,6 @@ if stock_map:
         fig11 = create_chart() 
         fig11.add_trace(go.Scatter(x=df_recent.index, y=df_recent['Band_Width'], line=dict(color='magenta', width=1), name='Band Width'))
         st.plotly_chart(fig11, use_container_width=True, config={'staticPlot': True})
+
 
 
