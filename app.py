@@ -6,8 +6,9 @@ import numpy as np
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
 from google import genai 
-import truststore, certifi
+import truststore, certifi, requests, time
 from google.genai import types 
+
 truststore.inject_into_ssl()
 
 # ==========================================
@@ -25,7 +26,11 @@ class TechnicalAnalyzer:
 
             # 최근 10년 데이터 로드
             # yfinance는 데이터프레임의 인덱스가 이미 datetime이며, Timezone이 포함될 수 있음
-            stock = yf.Ticker(symbol)
+            session = requests.Session()
+            session.headers.update({
+                    "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                })
+            stock = yf.Ticker(symbol,session=session)
             df = stock.history(period="10y")
 
             if df.empty: return df
@@ -805,4 +810,5 @@ if stock_map:
         fig11 = create_chart() 
         fig11.add_trace(go.Scatter(x=df_recent.index, y=df_recent['Band_Width'], line=dict(color='magenta', width=1), name='Band Width'))
         st.plotly_chart(fig11, use_container_width=True, config={'staticPlot': True})
+
 
