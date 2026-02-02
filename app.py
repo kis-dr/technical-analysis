@@ -175,6 +175,7 @@ def get_ai_diagnosis(api_key, stock_name, current_price, indicators, signals):
         - 보조지표의 '상태 값(예: 상향, 변동성확대 등)'을 인용하여 근거를 설명하세요.
         - 최대 2문장의 자연스러운 한국어 평문으로 간결하게 출력하세요. 
         - 서두 인사말은 생략하고 바로 본론만 말하세요.
+        - 중립적이거나, 애매모호한 표현은 사용하지 마세요.
         """
 
         response = client.models.generate_content(
@@ -422,8 +423,6 @@ if stock_map:
                         <div class="ai-title">✨ AI 기술적 진단 요약</div>
                         <p style="margin: 0; font-size: 1.15rem; color: #333333; line-height: 1.7; letter-spacing: -0.02em;">
                             {ai_comment}
-                        </p>
-                    </div>
                 </div>
                 """, unsafe_allow_html=True)
     # 지표 카드 레이아웃 (새로운 8개 지표 반영)
@@ -537,6 +536,7 @@ if stock_map:
         fig4 = create_chart("ATR (변동성 에너지)", height=250)
         fig4.add_trace(go.Scatter(x=df_recent.index, y=df_recent['ATR'], name='ATR', line=dict(color='darkred', width=2)))
         st.plotly_chart(fig4, use_container_width=True)
+
 
 
 
