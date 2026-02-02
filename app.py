@@ -385,6 +385,35 @@ if stock_map:
             st.markdown(f"""<div style="background-color: #f1f8e9; padding: 15px; border-radius: 10px; border: 1px solid #c5e1a5; margin-bottom: 20px;">
                 <h4 style="margin-top:0; color: #33691e;">✨ AI 기술적 진단</h4>
                 <p style="margin: 0; font-size: 1.2rem; color: #333333; line-height: 1.6;">{ai_comment}</p></div>""", unsafe_allow_html=True)
+            st.markdown(f"""
+                <style>
+                @keyframes rainbow-border {{
+                    0% {{ background-position: 0% 50%; }}
+                    50% {{ background-position: 100% 50%; }}
+                    100% {{ background-position: 0% 50%; }}
+                }}
+                .rainbow-box {{
+                    padding: 3px;
+                    border-radius: 12px;
+                    background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+                    background-size: 400% 400%;
+                    animation: rainbow-border 5s ease infinite;
+                    margin-bottom: 20px;
+                }}
+                .inner-content {{
+                    background-color: white;
+                    padding: 15px;
+                    border-radius: 10px;
+                }}
+                </style>
+                
+                <div class="rainbow-box">
+                    <div class="inner-content">
+                        <h4 style="margin-top:0; color: #33691e;">✨ AI 기술적 진단</h4>
+                        <p style="margin: 0; font-size: 1.2rem; color: #333333; line-height: 1.6;">{ai_comment}</p>
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
     # 지표 카드 레이아웃 (새로운 8개 지표 반영)
     indicator_defs = {
         'Sig_MA': {'name': '20일 이평선', 'tip': '주가가 20일 이동평균선 위에 있는지 여부'},
@@ -496,5 +525,6 @@ if stock_map:
         fig4 = create_chart("ATR (변동성 에너지)", height=250)
         fig4.add_trace(go.Scatter(x=df_recent.index, y=df_recent['ATR'], name='ATR', line=dict(color='darkred', width=2)))
         st.plotly_chart(fig4, use_container_width=True)
+
 
 
