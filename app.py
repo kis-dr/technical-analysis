@@ -134,7 +134,8 @@ class TechnicalAnalyzer:
             'Sig_MFI': ('자금유입', '자금유출')
         }
         for col, (pos, neg) in mapping.items():
-            signals[col] = pos if row[col] == 1 else neg
+            # [해결] 컬럼명 뒤에 '_Text'를 붙여서 이름 중복 방지
+            signals[col + "_Text"] = pos if row[col] == 1 else neg
         return pd.Series(signals)
 
 # ==========================================
@@ -441,4 +442,5 @@ if stock_map:
         fig4 = create_chart()
         fig4.add_trace(go.Scatter(x=df_recent.index, y=df_recent['ATR'], name='ATR', line=dict(color='red')))
         st.plotly_chart(fig4, use_container_width=True)
+
 
