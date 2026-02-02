@@ -361,7 +361,7 @@ if stock_map:
             fig_projection.add_trace(go.Scatter(x=future_dates, y=avg_path, mode='lines+markers', name='예상 평균', line=dict(color=avg_color, width=3, dash='dot')))
             fig_projection.add_annotation(x=future_dates[-1], y=avg_path[-1], text=f"{calc_avg_return:+.2f}%", showarrow=True, arrowhead=1, ax=35, ay=-30, font=dict(color=avg_color, size=13, weight='bold'))
 
-        fig_projection.update_layout(title=dict(text=f"<b>과거 유사 패턴 매칭</b>", font=dict(size=18)), template="plotly_white", height=400, margin=dict(l=10, r=10, t=40, b=10), showlegend=True, xaxis=dict(tickformat="%m-%d"), hovermode="x unified")
+        fig_projection.update_layout(title=dict(text=f"<b>과거 유사 패턴 매칭</b>", font=dict(size=18)), template="plotly_white", height=400, margin=dict(l=10, r=10, t=40, b=10), showlegend=True, xaxis=dict(tickformat="%m-%d"),yaxis=dict(tickformat=","), hovermode="x unified")
         st.plotly_chart(fig_projection, use_container_width=True)
 
     with col_table:
@@ -536,6 +536,7 @@ if stock_map:
         fig4 = create_chart("ATR (변동성 에너지)", height=250)
         fig4.add_trace(go.Scatter(x=df_recent.index, y=df_recent['ATR'], name='ATR', line=dict(color='darkred', width=2)))
         st.plotly_chart(fig4, use_container_width=True)
+
 
 
 
