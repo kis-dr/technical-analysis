@@ -151,6 +151,9 @@ def get_ai_diagnosis(api_key, stock_name, current_price, indicators, signals):
         })
         )
 
+        # [수정 포인트]
+        # signals[...] 대신 signals[... + '_Text']를 사용하여 
+        # 0, 1 대신 '상향', '매수우위' 등의 해석된 텍스트가 들어가도록 변경
         prompt = f"""
         당신은 전문 주식 기술적 분석가입니다. 아래 데이터를 바탕으로 '{stock_name}' 종목에 대한 기술적 분석 요약을 작성해주세요.
 
@@ -158,17 +161,18 @@ def get_ai_diagnosis(api_key, stock_name, current_price, indicators, signals):
         - 현재가: {current_price:,.0f}원
 
         [8대 이진 보조지표 상태]
-        1. 이동평균선(20일): {signals['Sig_MA']}
-        2. DMI(추세): {signals['Sig_DMI']}
-        3. RSI(모멘텀): {signals['Sig_RSI']}
-        4. CCI(방향성): {signals['Sig_CCI']}
-        5. 볼린저밴드폭: {signals['Sig_BB']}
-        6. ATR(변동성 에너지): {signals['Sig_ATR']}
-        7. OBV(수급): {signals['Sig_OBV']}
-        8. MFI(자금유입): {signals['Sig_MFI']}
+        1. 이동평균선(20일): {signals.get('Sig_MA_Text', '판단불가')}
+        2. DMI(추세): {signals.get('Sig_DMI_Text', '판단불가')}
+        3. RSI(모멘텀): {signals.get('Sig_RSI_Text', '판단불가')}
+        4. CCI(방향성): {signals.get('Sig_CCI_Text', '판단불가')}
+        5. 볼린저밴드폭: {signals.get('Sig_BB_Text', '판단불가')}
+        6. ATR(변동성 에너지): {signals.get('Sig_ATR_Text', '판단불가')}
+        7. OBV(수급): {signals.get('Sig_OBV_Text', '판단불가')}
+        8. MFI(자금유입): {signals.get('Sig_MFI_Text', '판단불가')}
 
         [요청사항]
         - 현재 기술적 지표들이 가리키는 전반적인 추세와 매수/매도 관점의 통찰을 제공하세요.
+        - 보조지표의 '상태 값(예: 상향, 변동성확대 등)'을 인용하여 근거를 설명하세요.
         - 최대 2문장의 자연스러운 한국어 평문으로 간결하게 출력하세요. 
         - 서두 인사말은 생략하고 바로 본론만 말하세요.
         """
@@ -414,50 +418,83 @@ if stock_map:
             with st.container(border=True):
                 st.markdown(f"**{info['name']}**", help=info['tip'])
                 st.markdown(f"<div style='color:{color}; font-weight:bold; font-size:15px; margin-top:5px;'>{status_text}</div>", unsafe_allow_html=True)
-
     # SECTION 4: 차트 시각화
     st.markdown("---")
+    st.markdown("### 📈 지표별 상세 차트")
+    
     six_months_ago = full_df.index[-1] - timedelta(days=180)
     df_recent = full_df[full_df.index >= six_months_ago]
 
-    def create_chart(height=250):
+    def create_chart(title, height=250):
         fig = go.Figure()
-        fig.update_layout(height=height, template="plotly_white", showlegend=False, margin=dict(l=10, r=10, t=10, b=10),
-            xaxis=dict(tickformat="%y-%m-%d"), yaxis=dict(tickformat=","))
+        fig.update_layout(
+            title=dict(text=title, font=dict(size=14)),
+            height=height, 
+            template="plotly_white", 
+            showlegend=True, 
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+            margin=dict(l=10, r=10, t=50, b=10),
+            xaxis=dict(tickformat="%y-%m-%d"), 
+            yaxis=dict(tickformat=",")
+        )
         return fig
 
-    # 1. Price & Bollinger
+    # [차트 1] Price & Bollinger & MA (MA20 추가됨)
     with st.container(border=True):
-        st.markdown("#### Price & Bollinger")
-        fig1 = create_chart(height=350)
-        fig1.add_trace(go.Candlestick(x=df_recent.index, open=df_recent['Open'], high=df_recent['High'], low=df_recent['Low'], close=df_recent['Close']))
-        fig1.add_trace(go.Scatter(x=df_recent.index, y=df_recent['Upper_Band'], line=dict(color='gray', width=1)))
-        fig1.add_trace(go.Scatter(x=df_recent.index, y=df_recent['Lower_Band'], line=dict(color='gray', width=1), fill='tonexty', fillcolor='rgba(200,200,200,0.1)'))
+        fig1 = create_chart("주가, 볼린저밴드, 이동평균선(20일)", height=400)
+        fig1.add_trace(go.Candlestick(x=df_recent.index, open=df_recent['Open'], high=df_recent['High'], low=df_recent['Low'], close=df_recent['Close'], name='Candle'))
+        fig1.add_trace(go.Scatter(x=df_recent.index, y=df_recent['MA20'], line=dict(color='blue', width=1.5), name='MA20'))
+        fig1.add_trace(go.Scatter(x=df_recent.index, y=df_recent['Upper_Band'], line=dict(color='gray', width=1), name='Upper BB'))
+        fig1.add_trace(go.Scatter(x=df_recent.index, y=df_recent['Lower_Band'], line=dict(color='gray', width=1), fill='tonexty', fillcolor='rgba(200,200,200,0.1)', name='Lower BB'))
         st.plotly_chart(fig1, use_container_width=True)
 
-    # 2. RSI & MFI (결합 시각화)
-    with st.container(border=True):
-        st.markdown("#### RSI & MFI (강도 및 자금유입)")
-        fig2 = create_chart()
-        fig2.add_trace(go.Scatter(x=df_recent.index, y=df_recent['RSI'], name='RSI', line=dict(color='purple')))
-        fig2.add_trace(go.Scatter(x=df_recent.index, y=df_recent['MFI'], name='MFI', line=dict(color='green')))
-        fig2.add_hline(y=50, line_dash="dash")
-        st.plotly_chart(fig2, use_container_width=True)
+    col_c1, col_c2 = st.columns(2)
 
-    # 3. OBV (수급)
-    with st.container(border=True):
-        st.markdown("#### OBV (수급 추이)")
-        fig3 = create_chart()
-        fig3.add_trace(go.Scatter(x=df_recent.index, y=df_recent['OBV'], line=dict(color='orange')))
-        st.plotly_chart(fig3, use_container_width=True)
+    # [차트 2] RSI & MFI (기존 유지)
+    with col_c1:
+        with st.container(border=True):
+            fig2 = create_chart("RSI & MFI (모멘텀/자금)", height=300)
+            fig2.add_trace(go.Scatter(x=df_recent.index, y=df_recent['RSI'], name='RSI', line=dict(color='purple')))
+            fig2.add_trace(go.Scatter(x=df_recent.index, y=df_recent['MFI'], name='MFI', line=dict(color='green')))
+            fig2.add_hline(y=50, line_dash="dash", line_color="gray")
+            fig2.add_hline(y=30, line_dash="dot", line_color="red") # 과매도 기준
+            fig2.add_hline(y=70, line_dash="dot", line_color="blue") # 과매수 기준
+            st.plotly_chart(fig2, use_container_width=True)
 
-    # 4. ATR & Band Width (변동성 에너지)
+    # [차트 3] CCI (신규 추가)
+    with col_c2:
+        with st.container(border=True):
+            fig_cci = create_chart("CCI (추세 방향)", height=300)
+            fig_cci.add_trace(go.Scatter(x=df_recent.index, y=df_recent['CCI'], name='CCI', line=dict(color='teal')))
+            fig_cci.add_hline(y=0, line_dash="dash", line_color="black")
+            fig_cci.add_hline(y=100, line_dash="dot", line_color="red")
+            fig_cci.add_hline(y=-100, line_dash="dot", line_color="blue")
+            st.plotly_chart(fig_cci, use_container_width=True)
+
+    col_c3, col_c4 = st.columns(2)
+
+    # [차트 4] DMI (신규 추가)
+    with col_c3:
+        with st.container(border=True):
+            fig_dmi = create_chart("DMI (PDI vs MDI)", height=300)
+            fig_dmi.add_trace(go.Scatter(x=df_recent.index, y=df_recent['Plus_DI'], name='+DI (매수)', line=dict(color='red')))
+            fig_dmi.add_trace(go.Scatter(x=df_recent.index, y=df_recent['Minus_DI'], name='-DI (매도)', line=dict(color='blue')))
+            st.plotly_chart(fig_dmi, use_container_width=True)
+
+    # [차트 5] OBV (기존 유지)
+    with col_c4:
+        with st.container(border=True):
+            fig3 = create_chart("OBV (거래량 수급)", height=300)
+            fig3.add_trace(go.Scatter(x=df_recent.index, y=df_recent['OBV'], name='OBV', line=dict(color='orange')))
+            # OBV 이동평균선 추가 (시그널 확인용)
+            obv_ma = df_recent['OBV'].rolling(20).mean()
+            fig3.add_trace(go.Scatter(x=df_recent.index, y=obv_ma, name='OBV_MA20', line=dict(color='gray', dash='dot')))
+            st.plotly_chart(fig3, use_container_width=True)
+
+    # [차트 6] ATR (기존 유지)
     with st.container(border=True):
-        st.markdown("#### Volatility (ATR & Band Width)")
-        fig4 = create_chart()
-        fig4.add_trace(go.Scatter(x=df_recent.index, y=df_recent['ATR'], name='ATR', line=dict(color='red')))
+        fig4 = create_chart("ATR (변동성 에너지)", height=250)
+        fig4.add_trace(go.Scatter(x=df_recent.index, y=df_recent['ATR'], name='ATR', line=dict(color='darkred', width=2)))
         st.plotly_chart(fig4, use_container_width=True)
-
-
 
 
