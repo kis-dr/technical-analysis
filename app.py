@@ -238,8 +238,13 @@ def run_analysis(ticker):
     if analyzer.df.empty: return None
     df = analyzer.add_indicators()
     if df.empty: return None
+    
     signal_df = df.apply(analyzer.interpret_indicators, axis=1)
+    
+    # [수정] axis=1로 병합 후 중복 컬럼 제거 (안전장치)
     full_df = pd.concat([df, signal_df], axis=1)
+    full_df = full_df.loc[:, ~full_df.columns.duplicated()]
+    
     return full_df
 
 stock_map = get_stock_list()
@@ -376,7 +381,6 @@ if stock_map:
             st.markdown(f"""<div style="background-color: #f1f8e9; padding: 15px; border-radius: 10px; border: 1px solid #c5e1a5; margin-bottom: 20px;">
                 <h4 style="margin-top:0; color: #33691e;">✨ AI 기술적 진단</h4>
                 <p style="margin: 0; font-size: 1.2rem; color: #333333; line-height: 1.6;">{ai_comment}</p></div>""", unsafe_allow_html=True)
-
     # 지표 카드 레이아웃 (새로운 8개 지표 반영)
     indicator_defs = {
         'Sig_MA': {'name': '20일 이평선', 'tip': '주가가 20일 이동평균선 위에 있는지 여부'},
@@ -391,14 +395,25 @@ if stock_map:
 
     cols_card = st.columns(4)
     for i, col in enumerate(sig_cols):
-        status_text = today_row[col] # '상향', '하향' 등 문자열
-        is_positive = int(today_row[col]) == 1 # 이진값 확인
+        # [수정 1] 텍스트 상태는 '_Text' 컬럼에서 가져오기
+        # 만약 해당 컬럼이 없으면 기본값 '-' 표시
+        status_text = today_row.get(col + "_Text", "-")
+        
+        # [수정 2] 이진 값(0/1) 안전하게 가져오기
+        raw_val = today_row[col]
+        # 혹시라도 중복 컬럼이 남아있어 Series로 반환될 경우를 대비해 마지막 값 사용
+        if isinstance(raw_val, pd.Series):
+            raw_val = raw_val.iloc[-1]
+            
+        is_positive = int(raw_val) == 1 # 이진값 확인
+        
         color = "#d62728" if is_positive else "#1f77b4"
         info = indicator_defs.get(col, {'name': col, 'tip': ''})
+        
         with cols_card[i % 4]:
             with st.container(border=True):
                 st.markdown(f"**{info['name']}**", help=info['tip'])
-                st.markdown(f"<div style='color:{color}; font-weight:bold; font-size:15px; margin-top:5px;'>{status_text}</div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='color:{color}; font-weight:bold; font-size:15px; margin-top:5px;'>{status_text}</div>", unsafe_allow_html=True)l=True)
 
     # SECTION 4: 차트 시각화
     st.markdown("---")
@@ -442,5 +457,6 @@ if stock_map:
         fig4 = create_chart()
         fig4.add_trace(go.Scatter(x=df_recent.index, y=df_recent['ATR'], name='ATR', line=dict(color='red')))
         st.plotly_chart(fig4, use_container_width=True)
+
 
 
