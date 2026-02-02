@@ -413,7 +413,7 @@ if stock_map:
         with cols_card[i % 4]:
             with st.container(border=True):
                 st.markdown(f"**{info['name']}**", help=info['tip'])
-                st.markdown(f"<div style='color:{color}; font-weight:bold; font-size:15px; margin-top:5px;'>{status_text}</div>", unsafe_allow_html=True)l=True)
+                st.markdown(f"<div style='color:{color}; font-weight:bold; font-size:15px; margin-top:5px;'>{status_text}</div>", unsafe_allow_html=True)
 
     # SECTION 4: 차트 시각화
     st.markdown("---")
@@ -457,6 +457,7 @@ if stock_map:
         fig4 = create_chart()
         fig4.add_trace(go.Scatter(x=df_recent.index, y=df_recent['ATR'], name='ATR', line=dict(color='red')))
         st.plotly_chart(fig4, use_container_width=True)
+
 
 
 
