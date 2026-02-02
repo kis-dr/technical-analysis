@@ -218,7 +218,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 기술적 분석 (Binary Prototype)")
+st.title("📊 기술적 분석 (Prototype)")
 
 threshold = 8 # 8개 지표 일치 여부 확인
 holding_days = 5
@@ -259,7 +259,7 @@ if stock_map:
     col1, col2 = st.columns([1, 2])
     with col1:
         selected_name = st.selectbox(
-            "종목 선택 (시가총액 내림차순)", 
+            "종목 선택", 
             options=stock_names, 
             index=stock_names.index('삼성전자') if '삼성전자' in stock_names else 0
         )
@@ -316,7 +316,7 @@ if stock_map:
     <div style="background-color: {summary_bg}; padding: 15px; border-radius: 10px; border: 1px solid {summary_border}; margin-top: 10px; margin-bottom: 20px;">
         <p style="margin: 0; font-size: 1.2rem; color: #222222; line-height: 1.6;"> 
              <b>📈 과거 패턴 분석 요약</b><br>
-            최근 10년 기술적 지표가 <b>{threshold}개 모두 동일했던 날</b>은 총 <b>{calc_count}일</b> 포착되었습니다.<br>
+            최근 10년 기술적 지표 상태가 동일했던 날은 총 <b>{calc_count}일</b> 포착되었습니다.<br>
             해당 시점들의 {holding_days}일 후 평균 상승 확률은 <b style="color: {win_color};">{calc_win_rate:.1f}%</b>, 
             평균 수익률은 <b style="color: {ret_color};">{calc_avg_return:+.1f}%</b>입니다.
         </p>
@@ -361,7 +361,7 @@ if stock_map:
             fig_projection.add_trace(go.Scatter(x=future_dates, y=avg_path, mode='lines+markers', name='예상 평균', line=dict(color=avg_color, width=3, dash='dot')))
             fig_projection.add_annotation(x=future_dates[-1], y=avg_path[-1], text=f"{calc_avg_return:+.2f}%", showarrow=True, arrowhead=1, ax=35, ay=-30, font=dict(color=avg_color, size=13, weight='bold'))
 
-        fig_projection.update_layout(title=dict(text=f"<b>과거 유사 패턴 매칭 ({threshold}개 지표 일치)</b>", font=dict(size=18)), template="plotly_white", height=400, margin=dict(l=10, r=10, t=40, b=10), showlegend=True, xaxis=dict(tickformat="%m-%d"), hovermode="x unified")
+        fig_projection.update_layout(title=dict(text=f"<b>과거 유사 패턴 매칭</b>", font=dict(size=18)), template="plotly_white", height=400, margin=dict(l=10, r=10, t=40, b=10), showlegend=True, xaxis=dict(tickformat="%m-%d"), hovermode="x unified")
         st.plotly_chart(fig_projection, use_container_width=True)
 
     with col_table:
@@ -536,6 +536,7 @@ if stock_map:
         fig4 = create_chart("ATR (변동성 에너지)", height=250)
         fig4.add_trace(go.Scatter(x=df_recent.index, y=df_recent['ATR'], name='ATR', line=dict(color='darkred', width=2)))
         st.plotly_chart(fig4, use_container_width=True)
+
 
 
 
