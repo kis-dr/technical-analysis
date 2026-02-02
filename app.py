@@ -173,7 +173,7 @@ def get_ai_diagnosis(api_key, stock_name, current_price, indicators, signals):
         """
 
         response = client.models.generate_content(
-            model="gemini-2.0-flash", # 최신 모델로 유지
+            model="gemma-3-27b-it", # 최신 모델로 유지
             contents=prompt
         )
         return response.text
@@ -391,7 +391,7 @@ if stock_map:
     cols_card = st.columns(4)
     for i, col in enumerate(sig_cols):
         status_text = today_row[col] # '상향', '하향' 등 문자열
-        is_positive = today_row[col.replace('Sig_', 'Sig_')] == 1 # 이진값 확인
+        is_positive = int(today_row[col]) == 1 # 이진값 확인
         color = "#d62728" if is_positive else "#1f77b4"
         info = indicator_defs.get(col, {'name': col, 'tip': ''})
         with cols_card[i % 4]:
@@ -441,3 +441,4 @@ if stock_map:
         fig4 = create_chart()
         fig4.add_trace(go.Scatter(x=df_recent.index, y=df_recent['ATR'], name='ATR', line=dict(color='red')))
         st.plotly_chart(fig4, use_container_width=True)
+
